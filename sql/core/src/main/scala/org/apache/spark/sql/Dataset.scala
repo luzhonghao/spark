@@ -182,9 +182,17 @@ class Dataset[T] private[sql](
       // For various commands (like DDL) and queries with side effects, we force query execution
       // to happen right away to let these side effects take place eagerly.
       case p if hasSideEffects(p) =>
-        LogicalRDD(queryExecution.analyzed.output, queryExecution.toRdd)(sparkSession)
+        val start = System.nanoTime()
+        val ret = LogicalRDD(queryExecution.analyzed.output, queryExecution.toRdd)(sparkSession)
+        val end = System.nanoTime()
+        sparkSession.listenerManager.onSuccess("command", queryExecution, end - start)
+        ret
       case Union(children) if children.forall(hasSideEffects) =>
-        LogicalRDD(queryExecution.analyzed.output, queryExecution.toRdd)(sparkSession)
+        val start = System.nanoTime()
+        val ret = LogicalRDD(queryExecution.analyzed.output, queryExecution.toRdd)(sparkSession)
+        val end = System.nanoTime()
+        sparkSession.listenerManager.onSuccess("command", queryExecution, end - start)
+        ret
       case _ =>
         queryExecution.analyzed
     }
@@ -2787,6 +2795,8 @@ class Dataset[T] private[sql](
   private[sql] def withNewExecutionId[U](body: => U): U = {
     SQLExecution.withNewExecutionId(sparkSession, queryExecution)(body)
   }
+
+
 
   /**
    * Wrap a Dataset action to track the QueryExecution and time cost, then report to the
