@@ -25,9 +25,9 @@ import org.apache.spark.annotation.InterfaceStability
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.catalog.{BucketSpec, CatalogTable, CatalogTableType}
-import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, OverwriteOptions}
-import org.apache.spark.sql.execution.command.{AlterTableRecoverPartitionsCommand, DDLUtils}
-import org.apache.spark.sql.execution.datasources.{CreateTable, DataSource, HadoopFsRelation}
+import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan, OverwriteOptions}
+import org.apache.spark.sql.execution.command.DDLUtils
+import org.apache.spark.sql.execution.datasources.{CreateTable, DataSource, SaveIntoDataSourceCommand}
 import org.apache.spark.sql.types.StructType
 
 /**
@@ -205,14 +205,15 @@ final class DataFrameWriter[T] private[sql](ds: Dataset[T]) {
    */
   def save(): Unit = {
     assertNotBucketed("save")
-    val dataSource = DataSource(
-      df.sparkSession,
-      className = source,
-      partitionColumns = partitioningColumns.getOrElse(Nil),
-      bucketSpec = getBucketSpec,
-      options = extraOptions.toMap)
 
-    dataSource.write(mode, df)
+    runCommand(df.sparkSession, "save") {
+      SaveIntoDataSourceCommand(
+        query = df.logicalPlan,
+        provider = source,
+        partitionColumns = partitioningColumns.getOrElse(Nil),
+        options = extraOptions.toMap,
+        mode = mode)
+    }
   }
   /**
    * Inserts the content of the `DataFrame` to the specified table. It requires that
@@ -254,14 +255,17 @@ final class DataFrameWriter[T] private[sql](ds: Dataset[T]) {
       )
     }
 
-    df.sparkSession.sessionState.executePlan(
+    runCommand(df.sparkSession, "insertInto") {
       InsertIntoTable(
         table = UnresolvedRelation(tableIdent),
         partition = Map.empty[String, Option[String]],
         child = df.logicalPlan,
         overwrite = OverwriteOptions(mode == SaveMode.Overwrite),
-        ifNotExists = false)).toRdd
+        ifNotExists = false)
+    }
   }
+
+
 
   private def normalizedParCols: Option[Seq[String]] = partitioningColumns.map { cols =>
     cols.map(normalize(_, "Partition"))
@@ -371,7 +375,6 @@ final class DataFrameWriter[T] private[sql](ds: Dataset[T]) {
 
       case (true, SaveMode.ErrorIfExists) =>
         throw new AnalysisException(s"Table $tableIdent already exists.")
-
       case _ =>
         val existingTable = if (tableExists) {
           Some(df.sparkSession.sessionState.catalog.getTableMetadata(tableIdent))
@@ -400,10 +403,34 @@ final class DataFrameWriter[T] private[sql](ds: Dataset[T]) {
           partitionColumnNames = partitioningColumns.getOrElse(Nil),
           bucketSpec = getBucketSpec
         )
-        df.sparkSession.sessionState.executePlan(
-          CreateTable(tableDesc, mode, Some(df.logicalPlan))).toRdd
+//        df.sparkSession.sessionState.executePlan(
+//          CreateTable(tableDesc, mode, Some(df.logicalPlan))).toRdd
+        val  command = CreateTable(tableDesc, mode, Some(df.logicalPlan))
+        runCommand(df.sparkSession, "saveAsTable")(command)
     }
+
   }
+
+  private def createTable(tableIdent: TableIdentifier): Unit = {
+    val storage = DataSource.buildStorageFormatFromOptions(extraOptions.toMap)
+    val tableType = if (storage.locationUri.isDefined) {
+      CatalogTableType.EXTERNAL
+    } else {
+      CatalogTableType.MANAGED
+    }
+
+    val tableDesc = CatalogTable(
+      identifier = tableIdent,
+      tableType = tableType,
+      storage = storage,
+      schema = new StructType,
+      provider = Some(source),
+      partitionColumnNames = partitioningColumns.getOrElse(Nil),
+      bucketSpec = getBucketSpec)
+
+    runCommand(df.sparkSession, "saveAsTable")(CreateTable(tableDesc, mode, Some(df.logicalPlan)))
+  }
+
 
   /**
    * Saves the content of the `DataFrame` to an external database table via JDBC. In the case the
@@ -577,6 +604,25 @@ final class DataFrameWriter[T] private[sql](ds: Dataset[T]) {
    */
   def csv(path: String): Unit = {
     format("csv").save(path)
+  }
+
+  /**
+   * Wrap a DataFrameWriter action to track the QueryExecution and time cost, then report to the
+   * user-registered callback functions.
+   */
+  private def runCommand(session: SparkSession, name: String)(command: LogicalPlan): Unit = {
+    val qe = session.sessionState.executePlan(command)
+    try {
+      val start = System.nanoTime()
+      // call `QueryExecution.toRDD` to trigger the execution of commands.
+      qe.toRdd
+      val end = System.nanoTime()
+      session.listenerManager.onSuccess(name, qe, end - start)
+    } catch {
+      case e: Exception =>
+        session.listenerManager.onFailure(name, qe, e)
+        throw e
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////

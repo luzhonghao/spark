@@ -51,9 +51,10 @@ class SparkListenerWithClusterSuite extends SparkFunSuite with LocalSparkContext
         val rdd2 = rdd1.map(_.toString)
         rdd2.setName("Target RDD")
         rdd2.count()
-
+        logInfo("the size is " + listener.addedExecutorInfo.size)
         sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS)
         assert(listener.addedExecutorInfo.size == 2)
+        logInfo("the map is " + listener.addedExecutorInfo)
         assert(listener.addedExecutorInfo("0").totalCores == 1)
         assert(listener.addedExecutorInfo("1").totalCores == 1)
     }
