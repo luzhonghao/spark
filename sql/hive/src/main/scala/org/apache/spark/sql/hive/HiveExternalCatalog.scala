@@ -200,7 +200,7 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     assert(tableDefinition.identifier.database.isDefined)
     val db = tableDefinition.identifier.database.get
     val table = tableDefinition.identifier.table
-    requireDbExists(db)
+    //requireDbExists(db)
     verifyTableProperties(tableDefinition)
 
     if (tableExists(db, table) && !ignoreIfExists) {
@@ -461,7 +461,7 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
       table: String,
       ignoreIfNotExists: Boolean,
       purge: Boolean): Unit = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     client.dropTable(db, table, ignoreIfNotExists, purge)
   }
 
@@ -749,12 +749,12 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
   }
 
   override def listTables(db: String): Seq[String] = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     client.listTables(db)
   }
 
   override def listTables(db: String, pattern: String): Seq[String] = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     client.listTables(db, pattern)
   }
 
@@ -1041,7 +1041,7 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
   override def createFunction(
       db: String,
       funcDefinition: CatalogFunction): Unit = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     // Hive's metastore is case insensitive. However, Hive's createFunction does
     // not normalize the function name (unlike the getFunction part). So,
     // we are normalizing the function name.
@@ -1068,12 +1068,12 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
   }
 
   override def functionExists(db: String, funcName: String): Boolean = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     client.functionExists(db, funcName)
   }
 
   override def listFunctions(db: String, pattern: String): Seq[String] = withClient {
-    requireDbExists(db)
+    //requireDbExists(db)
     client.listFunctions(db, pattern)
   }
 
