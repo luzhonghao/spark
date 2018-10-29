@@ -473,10 +473,11 @@ class Analyzer(
       case u: UnresolvedRelation =>
         val table = u.tableIdentifier
         if (table.database.isDefined && conf.runSQLonFile && !catalog.isTemporaryTable(table) &&
-            isRunSQLOnFile(table.database.get,table.table)) {
+            isRunSQLOnFile(table.database.get, table.table)) {
           // If the database part is specified, and we support running SQL directly on files, and
           // it's not a temporary view,
-          // and (table name starts with '/' or database name may be a class name), then let's just return the
+          // and (table name starts with '/' or database name may be a class name),
+          // then let's just return the
           // original UnresolvedRelation. It is possible we are matching a query like "select *
           // from parquet.`/path/to/query`". The plan will get resolved later.
           // Note that we are testing (!db_exists || !table_exists) because the catalog throws
