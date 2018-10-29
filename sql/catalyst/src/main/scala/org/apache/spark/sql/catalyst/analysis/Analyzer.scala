@@ -464,7 +464,7 @@ class Analyzer(
     // if table name contains '/' or database name may be a class name
     // , such as org.apache.spark.sql.parquet
     def isRunSQLOnFile(dbName: String, tbName: String): Boolean = {
-      tbName.contains("/") || dbName.split(".").length > 1
+      tbName.contains("/") || dbName.split("\\.").length > 1
     }
 
     def apply(plan: LogicalPlan): LogicalPlan = plan resolveOperators {
