@@ -461,15 +461,23 @@ class Analyzer(
       }
     }
 
+    // if table name contains '/' or database name may be a class name
+    // , such as org.apache.spark.sql.parquet
+    def isRunSQLOnFile(dbName: String, tbName: String): Boolean = {
+      tbName.contains("/") || dbName.split("\\.").length > 1
+    }
+
     def apply(plan: LogicalPlan): LogicalPlan = plan resolveOperators {
       case i @ InsertIntoTable(u: UnresolvedRelation, parts, child, _, _) if child.resolved =>
         i.copy(table = EliminateSubqueryAliases(lookupTableFromCatalog(u)))
       case u: UnresolvedRelation =>
         val table = u.tableIdentifier
         if (table.database.isDefined && conf.runSQLonFile && !catalog.isTemporaryTable(table) &&
-            (!catalog.databaseExists(table.database.get) || !catalog.tableExists(table))) {
+            isRunSQLOnFile(table.database.get, table.table)) {
           // If the database part is specified, and we support running SQL directly on files, and
-          // it's not a temporary view, and the table does not exist, then let's just return the
+          // it's not a temporary view,
+          // and (table name starts with '/' or database name may be a class name),
+          // then let's just return the
           // original UnresolvedRelation. It is possible we are matching a query like "select *
           // from parquet.`/path/to/query`". The plan will get resolved later.
           // Note that we are testing (!db_exists || !table_exists) because the catalog throws
