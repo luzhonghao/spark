@@ -1615,12 +1615,12 @@ class SQLQuerySuite extends QueryTest with SharedSQLContext {
     assert(e.message.contains("Table or view not found"))
 
     e = intercept[AnalysisException] {
-      sql(s"select id from `json`.`/file_path`")
+      sql("select * from no_db.no_table").show()
     }
-    assert(e.message.contains("Path does not exist"))
+    assert(e.message.contains("Table or view not found"))
 
     e = intercept[AnalysisException] {
-      sql(s"select id from `json`.`file_path/sub_path`")
+      sql("select * from json.invalid_file")
     }
     assert(e.message.contains("Path does not exist"))
 
@@ -1634,11 +1634,27 @@ class SQLQuerySuite extends QueryTest with SharedSQLContext {
     }
     assert(e.message.contains("Failed to find data source: com.databricks.spark.avro."))
 
+    // data source type is case insensitive
+    e = intercept[AnalysisException] {
+      sql(s"select id from Avro.`file_path`")
+    }
+    assert(e.message.contains("Failed to find data source: avro."))
+
+    e = intercept[AnalysisException] {
+      sql(s"select id from avro.`file_path`")
+    }
+    assert(e.message.contains("Failed to find data source: avro."))
+
     e = intercept[AnalysisException] {
       sql(s"select id from `org.apache.spark.sql.sources.HadoopFsRelationProvider`.`file_path`")
     }
     assert(e.message.contains("Table or view not found: " +
       "`org.apache.spark.sql.sources.HadoopFsRelationProvider`.`file_path`"))
+
+    e = intercept[AnalysisException] {
+      sql(s"select id from `Jdbc`.`file_path`")
+    }
+    assert(e.message.contains("Unsupported data source type for direct query on files: Jdbc"))
 
     e = intercept[AnalysisException] {
       sql(s"select id from `org.apache.spark.sql.execution.datasources.jdbc`.`file_path`")

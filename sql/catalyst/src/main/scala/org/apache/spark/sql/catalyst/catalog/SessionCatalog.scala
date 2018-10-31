@@ -244,6 +244,7 @@ class SessionCatalog(
     val table = formatTableName(tableDefinition.identifier.table)
     validateName(table)
     val newTableDefinition = tableDefinition.copy(identifier = TableIdentifier(table, Some(db)))
+    requireDbExists(db)
     externalCatalog.createTable(newTableDefinition, ignoreIfExists)
   }
 
@@ -261,6 +262,7 @@ class SessionCatalog(
     val table = formatTableName(tableDefinition.identifier.table)
     val tableIdentifier = TableIdentifier(table, Some(db))
     val newTableDefinition = tableDefinition.copy(identifier = tableIdentifier)
+    requireDbExists(db)
     requireTableExists(tableIdentifier)
     externalCatalog.alterTable(newTableDefinition)
   }
@@ -283,6 +285,7 @@ class SessionCatalog(
   def getTableMetadata(name: TableIdentifier): CatalogTable = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(name.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Some(db)))
     externalCatalog.getTable(db, table)
   }
@@ -295,6 +298,7 @@ class SessionCatalog(
   def getTableMetadataOption(name: TableIdentifier): Option[CatalogTable] = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(name.table)
+    requireDbExists(db)
     externalCatalog.getTableOption(db, table)
   }
 
@@ -310,6 +314,7 @@ class SessionCatalog(
       holdDDLTime: Boolean): Unit = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(name.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Some(db)))
     externalCatalog.loadTable(db, table, loadPath, isOverwrite, holdDDLTime)
   }
@@ -328,6 +333,7 @@ class SessionCatalog(
       inheritTableSpecs: Boolean): Unit = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(name.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Some(db)))
     requireNonEmptyValueInPartitionSpec(Seq(spec))
     externalCatalog.loadPartition(
@@ -482,6 +488,7 @@ class SessionCatalog(
     if (db == globalTempViewManager.database) {
       globalTempViewManager.rename(oldTableName, newTableName)
     } else {
+      requireDbExists(db)
       if (oldName.database.isDefined || !tempTables.contains(oldTableName)) {
         requireTableExists(TableIdentifier(oldTableName, Some(db)))
         requireTableNotExists(TableIdentifier(newTableName, Some(db)))
@@ -524,6 +531,7 @@ class SessionCatalog(
       }
     } else {
       if (name.database.isDefined || !tempTables.contains(table)) {
+        requireDbExists(db)
         // When ignoreIfNotExists is false, no exception is issued when the table does not exist.
         // Instead, log it as an error message.
         if (tableExists(TableIdentifier(table, Option(db)))) {
@@ -609,6 +617,7 @@ class SessionCatalog(
         TableIdentifier(name, Some(globalTempViewManager.database))
       }
     } else {
+      requireDbExists(dbName)
       externalCatalog.listTables(dbName, pattern).map { name =>
         TableIdentifier(name, Some(dbName))
       }
@@ -665,6 +674,7 @@ class SessionCatalog(
       ignoreIfExists: Boolean): Unit = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     requireExactMatchedPartitionSpec(parts.map(_.spec), getTableMetadata(tableName))
     requireNonEmptyValueInPartitionSpec(parts.map(_.spec))
@@ -683,6 +693,7 @@ class SessionCatalog(
       retainData: Boolean): Unit = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     requirePartialMatchedPartitionSpec(specs, getTableMetadata(tableName))
     requireNonEmptyValueInPartitionSpec(specs)
@@ -702,6 +713,7 @@ class SessionCatalog(
     val tableMetadata = getTableMetadata(tableName)
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     requireExactMatchedPartitionSpec(specs, tableMetadata)
     requireExactMatchedPartitionSpec(newSpecs, tableMetadata)
@@ -722,6 +734,7 @@ class SessionCatalog(
   def alterPartitions(tableName: TableIdentifier, parts: Seq[CatalogTablePartition]): Unit = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     requireExactMatchedPartitionSpec(parts.map(_.spec), getTableMetadata(tableName))
     requireNonEmptyValueInPartitionSpec(parts.map(_.spec))
@@ -735,6 +748,7 @@ class SessionCatalog(
   def getPartition(tableName: TableIdentifier, spec: TablePartitionSpec): CatalogTablePartition = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     requireExactMatchedPartitionSpec(Seq(spec), getTableMetadata(tableName))
     requireNonEmptyValueInPartitionSpec(Seq(spec))
@@ -753,6 +767,7 @@ class SessionCatalog(
       partialSpec: Option[TablePartitionSpec] = None): Seq[String] = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     partialSpec.foreach { spec =>
       requirePartialMatchedPartitionSpec(Seq(spec), getTableMetadata(tableName))
@@ -773,6 +788,7 @@ class SessionCatalog(
       partialSpec: Option[TablePartitionSpec] = None): Seq[CatalogTablePartition] = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     partialSpec.foreach { spec =>
       requirePartialMatchedPartitionSpec(Seq(spec), getTableMetadata(tableName))
@@ -790,6 +806,7 @@ class SessionCatalog(
       predicates: Seq[Expression]): Seq[CatalogTablePartition] = {
     val db = formatDatabaseName(tableName.database.getOrElse(getCurrentDatabase))
     val table = formatTableName(tableName.table)
+    requireDbExists(db)
     requireTableExists(TableIdentifier(table, Option(db)))
     externalCatalog.listPartitionsByFilter(db, table, predicates)
   }
@@ -862,6 +879,7 @@ class SessionCatalog(
    */
   def createFunction(funcDefinition: CatalogFunction, ignoreIfExists: Boolean): Unit = {
     val db = formatDatabaseName(funcDefinition.identifier.database.getOrElse(getCurrentDatabase))
+    requireDbExists(db)
     val identifier = FunctionIdentifier(funcDefinition.identifier.funcName, Some(db))
     val newFuncDefinition = funcDefinition.copy(identifier = identifier)
     if (!functionExists(identifier)) {
@@ -877,6 +895,7 @@ class SessionCatalog(
    */
   def dropFunction(name: FunctionIdentifier, ignoreIfNotExists: Boolean): Unit = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
+    requireDbExists(db)
     val identifier = name.copy(database = Some(db))
     if (functionExists(identifier)) {
       // TODO: registry should just take in FunctionIdentifier for type safety
@@ -901,6 +920,7 @@ class SessionCatalog(
    */
   def getFunctionMetadata(name: FunctionIdentifier): CatalogFunction = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
+    requireDbExists(db)
     externalCatalog.getFunction(db, name.funcName)
   }
 
@@ -909,6 +929,7 @@ class SessionCatalog(
    */
   def functionExists(name: FunctionIdentifier): Boolean = {
     val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
+    requireDbExists(db)
     functionRegistry.functionExists(name.unquotedString) ||
       externalCatalog.functionExists(db, name.funcName)
   }
@@ -989,6 +1010,7 @@ class SessionCatalog(
       .orElse(functionRegistry.lookupFunction(qualifiedName.unquotedString))
       .getOrElse {
         val db = qualifiedName.database.get
+        requireDbExists(db)
         if (externalCatalog.functionExists(db, name.funcName)) {
           val metadata = externalCatalog.getFunction(db, name.funcName)
           new ExpressionInfo(
@@ -1075,6 +1097,7 @@ class SessionCatalog(
    */
   def listFunctions(db: String, pattern: String): Seq[(FunctionIdentifier, String)] = {
     val dbName = formatDatabaseName(db)
+    requireDbExists(dbName)
     val dbFunctions = externalCatalog.listFunctions(dbName, pattern)
       .map { f => FunctionIdentifier(f, Some(dbName)) }
     val loadedFunctions = StringUtils.filterPattern(functionRegistry.listFunction(), pattern)

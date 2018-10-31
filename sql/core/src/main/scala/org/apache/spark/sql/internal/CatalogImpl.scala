@@ -138,6 +138,7 @@ class CatalogImpl(sparkSession: SparkSession) extends Catalog {
    */
   @throws[AnalysisException]("database does not exist")
   override def listFunctions(dbName: String): Dataset[Function] = {
+    requireDatabaseExists(dbName)
     val functions = sessionCatalog.listFunctions(dbName).map { case (functIdent, _) =>
       makeFunction(functIdent)
     }
