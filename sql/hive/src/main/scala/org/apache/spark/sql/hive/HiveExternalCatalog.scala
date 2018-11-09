@@ -20,13 +20,16 @@ package org.apache.spark.sql.hive
 import java.io.IOException
 import java.lang.reflect.InvocationTargetException
 import java.net.URI
+import java.security.AccessControlException
 import java.util
 
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
+import org.apache.commons.lang.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.metadata.HiveException
 import org.apache.thrift.TException
 
@@ -34,7 +37,7 @@ import org.apache.spark.{SparkConf, SparkException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException
+import org.apache.spark.sql.catalyst.analysis.{NoSuchDatabaseException, TableAlreadyExistsException}
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils.escapePathName
 import org.apache.spark.sql.catalyst.expressions._
@@ -176,6 +179,27 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
 
   override def databaseExists(db: String): Boolean = withClient {
     client.databaseExists(db)
+  }
+
+  override def databaseExists(db: String, compatible: Boolean): Boolean = {
+    def isACLException(ae: AnalysisException): Boolean = {
+      ae.getCause match {
+        case he: HiveException if he.getCause != null && he.getCause.isInstanceOf[MetaException] =>
+          StringUtils.contains(he.getCause.asInstanceOf[MetaException].getMessage,
+            "AccessControlException")
+        case _ => false
+      }
+    }
+
+    if (compatible) {
+      try {
+        databaseExists(db)
+      } catch {
+        case ae: AnalysisException if isACLException(ae) => true
+      }
+    } else {
+      databaseExists(db)
+    }
   }
 
   override def listDatabases(): Seq[String] = withClient {
