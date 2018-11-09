@@ -1480,9 +1480,9 @@ private object Client extends Logging {
   private def checkRangerEnable(sparkConf: SparkConf): Boolean = {
       val rangerExt = "org.apache.ranger.authorization.spark.authorizer.RangerSparkSQLExtension"
       if (rangerExt.equals(sparkConf.getOption("spark.sql.extensions").getOrElse(""))) {
-        true
+        return true
       }
-      false
+      return false
   }
 
 
