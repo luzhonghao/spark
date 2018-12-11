@@ -40,7 +40,8 @@ case class OptimizeJoin(conf: SQLConf) extends Rule[SparkPlan] {
   }
 
   private def canBroadcast(plan: SparkPlan): Boolean = {
-    plan.stats.sizeInBytes >= 0 && plan.stats.sizeInBytes <= conf.adaptiveBroadcastJoinThreshold
+    val ret = plan.statsPlan.sizeInBytes >= 0
+    ret && plan.statsPlan.sizeInBytes <= conf.adaptiveBroadcastJoinThreshold
   }
 
   private def removeSort(plan: SparkPlan): SparkPlan = {
@@ -85,9 +86,9 @@ case class OptimizeJoin(conf: SQLConf) extends Rule[SparkPlan] {
     // reading them in local shuffle read.
     broadcastSidePlan match {
       case broadcast: ShuffleQueryStageInput
-        if broadcast.childStage.stats.bytesByPartitionId.isDefined =>
+        if broadcast.childStage.statsPlan.bytesByPartitionId.isDefined =>
           val (startIndicies, endIndicies) = calculatePartitionStartEndIndices(broadcast.childStage
-            .stats.bytesByPartitionId.get)
+            .statsPlan.bytesByPartitionId.get)
           childrenPlans.foreach {
             case input: ShuffleQueryStageInput =>
               input.partitionStartIndices = Some(startIndicies)

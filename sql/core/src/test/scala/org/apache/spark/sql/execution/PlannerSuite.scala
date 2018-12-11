@@ -351,7 +351,7 @@ class PlannerSuite extends SharedSQLContext {
     )
     withSQLConf(SQLConf.SHUFFLE_TARGET_POSTSHUFFLE_INPUT_SIZE.key -> "1") {
 
-      val totalInputFileSize = inputPlan.collectLeaves().map(_.stats.sizeInBytes).sum
+      val totalInputFileSize = inputPlan.collectLeaves().map(_.statsPlan.sizeInBytes).sum
       val expectedNum = Math.ceil(
         totalInputFileSize.toLong * 1.0 / conf.targetPostShuffleInputSize).toInt
 

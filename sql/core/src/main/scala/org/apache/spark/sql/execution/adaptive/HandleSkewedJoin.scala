@@ -91,7 +91,7 @@ case class HandleSkewedJoin(conf: SQLConf) extends Rule[SparkPlan] {
       partitionId: Int,
       medianSize: Long,
       medianRowCount: Long): Array[Int] = {
-    val stats = queryStageInput.childStage.stats
+    val stats = queryStageInput.childStage.statsPlan
     val size = stats.bytesByPartitionId.get(partitionId)
     val rowCount = stats.recordStatistics.get.recordsByPartitionId(partitionId)
     val factor = Math.max(size / medianSize, rowCount / medianRowCount)
@@ -110,8 +110,8 @@ case class HandleSkewedJoin(conf: SQLConf) extends Rule[SparkPlan] {
       left: QueryStageInput,
       right: QueryStageInput): Boolean = {
       supportedJoinTypes.contains(joinType) &&
-      left.childStage.stats.getPartitionStatistics.isDefined &&
-      right.childStage.stats.getPartitionStatistics.isDefined
+      left.childStage.statsPlan.getPartitionStatistics.isDefined &&
+      right.childStage.statsPlan.getPartitionStatistics.isDefined
   }
 
   private def supportSplitOnLeftPartition(joinType: JoinType) = joinType != RightOuter
@@ -128,8 +128,8 @@ case class HandleSkewedJoin(conf: SQLConf) extends Rule[SparkPlan] {
       SortExec(_, _, right: ShuffleQueryStageInput, _))
       if supportOptimization(joinType, left, right) =>
 
-      val leftStats = left.childStage.stats.getPartitionStatistics.get
-      val rightStats = right.childStage.stats.getPartitionStatistics.get
+      val leftStats = left.childStage.statsPlan.getPartitionStatistics.get
+      val rightStats = right.childStage.statsPlan.getPartitionStatistics.get
       val numPartitions = leftStats.bytesByPartitionId.length
       val (leftMedSize, leftMedRowCount) = medianSizeAndRowCount(leftStats)
       val (rightMedSize, rightMedRowCount) = medianSizeAndRowCount(rightStats)
