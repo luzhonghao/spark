@@ -33,6 +33,7 @@ import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partition
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat => ParquetSource}
 import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.execution.statsEstimation.Statistics
 import org.apache.spark.sql.sources.{BaseRelation, Filter}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.Utils
@@ -70,6 +71,16 @@ trait DataSourceScanExec extends LeafExecNode with CodegenSupport {
    */
   private def redact(text: String): String = {
     Utils.redact(sqlContext.sessionState.conf.stringRedactionPattern, text)
+  }
+
+  override def computeStats(): Statistics = {
+    // There should be some overhead in Row object, the size should not be zero when there is
+    // no columns, this help to prevent divide-by-zero error.
+    val outputRowSize = output.map(_.dataType.defaultSize).sum + 8
+    val dataSchema = sqlContext.sparkSession.sessionState.catalog.getTableMetadata(
+      tableIdentifier.get).dataSchema
+    val totalRowSize = dataSchema.map(_.dataType.defaultSize).sum + 8
+    Statistics(sizeInBytes = ((relation.sizeInBytes * outputRowSize) / totalRowSize))
   }
 }
 
