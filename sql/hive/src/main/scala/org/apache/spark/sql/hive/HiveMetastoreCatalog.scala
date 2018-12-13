@@ -157,16 +157,16 @@ private[hive] class HiveMetastoreCatalog(sparkSession: SparkSession) extends Log
         val logicalRelation = cached.getOrElse {
           // for the partition table, the relation.stats.sizeInBytes is Long.max
           // not the real size in hdfs
-          var sizes = 0L
-          if (relation.isPartitioned && relation.stats.sizeInBytes.toLong == Long.MaxValue) {
-            sizes = sparkSession.sharedState.externalCatalog.
-              listPartitions(tableIdentifier.database,
-              tableIdentifier.name).map(_.parameters.get(StatsSetupConst.TOTAL_SIZE).get.toLong)
-              .sum
-          } else {
-            sizes = relation.stats.sizeInBytes.toLong
-          }
-          val sizeInBytes = sizes
+//          var sizes = 0L
+//          if (relation.isPartitioned && relation.stats.sizeInBytes.toLong == Long.MaxValue) {
+//            sizes = sparkSession.sharedState.externalCatalog.
+//              listPartitions(tableIdentifier.database,
+//              tableIdentifier.name).map(_.parameters.get(StatsSetupConst.TOTAL_SIZE).get.toLong)
+//              .sum
+//          } else {
+//            sizes = relation.stats.sizeInBytes.toLong
+//          }
+          val sizeInBytes = relation.stats.sizeInBytes.toLong
           val fileIndex = {
             val index = new CatalogFileIndex(sparkSession, relation.tableMeta, sizeInBytes)
             if (lazyPruningEnabled) {
