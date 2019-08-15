@@ -157,7 +157,9 @@ private[sql] class SessionState(sparkSession: SparkSession) {
    * An interface to register custom [[org.apache.spark.sql.util.QueryExecutionListener]]s
    * that listen for execution metrics.
    */
-  lazy val listenerManager: ExecutionListenerManager = new ExecutionListenerManager
+  lazy val listenerManager: ExecutionListenerManager = {
+    new ExecutionListenerManager(sparkSession.sparkContext.conf)
+  }
 
   /**
    * Interface to start and stop [[StreamingQuery]]s.
