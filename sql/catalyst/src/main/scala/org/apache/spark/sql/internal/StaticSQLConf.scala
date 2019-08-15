@@ -38,6 +38,8 @@ object StaticSQLConf {
     }
   }
 
+
+
   val WAREHOUSE_PATH = buildConf("spark.sql.warehouse.dir")
     .doc("The default location for managed databases and tables.")
     .stringConf
@@ -74,4 +76,13 @@ object StaticSQLConf {
     .doc("Only used for internal debugging. Not all functions are supported when it is enabled.")
     .booleanConf
     .createWithDefault(false)
+
+  val QUERY_EXECUTION_LISTENERS = buildConf("spark.sql.queryExecutionListeners")
+    .doc("List of class names implementing QueryExecutionListener that will be automatically " +
+      "added to newly created sessions. The classes should have either a no-arg constructor, " +
+      "or a constructor that expects a SparkConf argument.")
+    .stringConf
+    .toSequence
+    .createOptional
+
 }
